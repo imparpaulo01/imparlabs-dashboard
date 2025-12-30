@@ -192,6 +192,44 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
     (neovisRef.current as any).registerOnEvent('completed', () => {
       console.log('Graph rendering completed');
 
+      // DEBUG MODE: Set to true to enable verbose edge/node logging
+      // Useful for diagnosing AuraDB 64-bit ID overflow issues
+      const DEBUG_NEOVIS = false;
+
+      if (DEBUG_NEOVIS && neovisRef.current) {
+        const nodes = neovisRef.current.nodes;
+        const edges = neovisRef.current.edges;
+        console.log('=== NEOVIS DEBUG START ===');
+        console.log('Nodes count:', nodes?.length || 0);
+        console.log('Edges count:', edges?.length || 0);
+
+        if (nodes && nodes.length > 0) {
+          const allNodeIds = nodes.getIds();
+          console.log('ALL node IDs:', JSON.stringify(allNodeIds));
+          console.log('Node IDs (first 10):', allNodeIds.slice(0, 10));
+          const sampleNode = nodes.get(allNodeIds[0]);
+          console.log('Sample node structure:', JSON.stringify(sampleNode, null, 2));
+        }
+
+        if (edges && edges.length > 0) {
+          const allEdges = edges.get();
+          console.log('ALL edges count:', allEdges.length);
+          const edgeIds = allEdges.map((e: { id: unknown }) => e.id);
+          console.log('Edge IDs:', JSON.stringify(edgeIds));
+          const nullCount = edgeIds.filter((id: unknown) => id === null || id === undefined).length;
+          console.log('Edges with null ID:', nullCount, 'out of', allEdges.length);
+          console.log('First 3 edges FULL:', JSON.stringify(allEdges.slice(0, 3), null, 2));
+          allEdges.forEach((edge: { id: unknown; from: string | number; to: string | number; raw?: { identity?: unknown } }, i: number) => {
+            const fromExists = nodes?.get(edge.from);
+            const toExists = nodes?.get(edge.to);
+            console.log(`Edge ${i}: id=${edge.id}, rawId=${edge.raw?.identity}, from=${edge.from} (exists: ${!!fromExists}), to=${edge.to} (exists: ${!!toExists})`);
+          });
+        } else {
+          console.log('NO EDGES FOUND!');
+        }
+        console.log('=== NEOVIS DEBUG END ===');
+      }
+
       // Only set up physics disable once per query
       if (physicsDisabled) return;
 

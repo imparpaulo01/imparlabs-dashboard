@@ -176,8 +176,16 @@ npm run lint
 
 ## Deployment
 
-For Coolify deployment, create `nixpacks.toml`:
+### Recommended: Coolify (VPS Self-Hosted)
 
+Deploy Neo4j + Query App on Coolify for full control and reliable edge rendering.
+
+**Why Coolify over Vercel + AuraDB?**
+See [Known Issues](#known-issues) below - AuraDB has 64-bit ID overflow issues with Neovis.js.
+
+**Files needed:**
+
+1. `nixpacks.toml` for the React app:
 ```toml
 [phases.setup]
 nixPkgs = ['nodejs_20']
@@ -192,11 +200,67 @@ cmds = ['npm run build']
 cmd = 'npx serve dist -l 3000'
 ```
 
-Configure environment variables in Coolify:
-- `VITE_GROQ_API_KEY`
-- `VITE_NEO4J_URI`
-- `VITE_NEO4J_USER`
-- `VITE_NEO4J_PASSWORD`
+2. `docker-compose.yml` for Neo4j:
+```yaml
+version: '3'
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/your-password-here
+    volumes:
+      - neo4j-data:/data
+volumes:
+  neo4j-data:
+```
+
+**Environment variables in Coolify:**
+- `VITE_GROQ_API_KEY` - Your Groq API key
+- `VITE_NEO4J_URI` - `bolt://neo4j-service-name:7687` (internal) or public URL
+- `VITE_NEO4J_USER` - `neo4j`
+- `VITE_NEO4J_PASSWORD` - Your Neo4j password
+
+### Alternative: Vercel (Frontend Only)
+
+Vercel deployment works for the React app, but requires external Neo4j hosting.
+
+**Status:** ⚠️ NOT RECOMMENDED - See [Known Issues](#known-issues)
+
+## Known Issues
+
+### AuraDB Edge Rendering Bug (Critical)
+
+**Problem:** Neo4j AuraDB renders only 1 edge instead of all edges.
+
+**Root Cause:** AuraDB uses 64-bit relationship IDs that overflow JavaScript's 53-bit safe integer limit.
+
+**Technical Details:**
+- AuraDB relationship IDs: ~100 quintillion (exceeds `Number.MAX_SAFE_INTEGER`)
+- JavaScript converts these to `Infinity`
+- vis.js DataSet deduplicates items by ID
+- All edges get `id=Infinity` → only last one survives
+
+**Evidence (from debug logging):**
+```
+// LOCAL Neo4j (works)
+Edge IDs: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21...]
+Result: 50 edges rendered ✅
+
+// AuraDB (broken)
+Edge IDs: [null]
+Edge 0: id=Infinity, rawId=Infinity
+Result: 1 edge rendered ❌
+```
+
+**Solution:** Use fresh Neo4j on Coolify. New databases start with small sequential IDs (0,1,2...) that work correctly.
+
+**Alternatives that WON'T work:**
+- Vercel + AuraDB → Same overflow issue
+- Any cloud Neo4j with existing data → IDs already corrupted
+- Client-side ID generation → Neovis.js doesn't support this
 
 ## Current Data
 
