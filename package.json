@@ -1,0 +1,43 @@
+{
+  "name": "imparlabs-dashboard",
+  "version": "1.0.0",
+  "description": "Project Portfolio Management System for IMPAR Labs",
+  "main": "dist/index.js",
+  "bin": {
+    "imparlabs-dashboard": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli/index.js",
+    "dev": "ts-node src/cli/index.ts",
+    "scan": "npm run build && node dist/cli/index.js scan",
+    "list": "npm run build && node dist/cli/index.js list",
+    "stats": "npm run build && node dist/cli/index.js stats",
+    "web": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "web:start": "cd web && npm run start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "project-management",
+    "portfolio",
+    "tracking",
+    "imparlabs"
+  ],
+  "author": "ImparLabs",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^14.0.2",
+    "fs-extra": "^11.3.2",
+    "glob": "^13.0.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/glob": "^8.1.0",
+    "@types/node": "^24.10.1",
+    "@types/sqlite3": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

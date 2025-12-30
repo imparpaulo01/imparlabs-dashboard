@@ -1,0 +1,43 @@
+version: '3.8'
+
+# Neo4j Local Development Environment
+# Usage: docker compose up -d
+# Browser: http://localhost:7474
+# Bolt: bolt://localhost:7687
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: imparlabs-neo4j-local
+    ports:
+      - "7474:7474"  # HTTP (Browser UI)
+      - "7687:7687"  # Bolt (Driver connections)
+    environment:
+      # Default credentials: neo4j / knowledge-graph
+      - NEO4J_AUTH=neo4j/knowledge-graph
+      # Memory settings (adjust for your machine)
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=1G
+      - NEO4J_server_memory_pagecache_size=512m
+      # Enable APOC plugin (useful utilities)
+      - NEO4J_PLUGINS=["apoc"]
+      # Allow file imports from /import directory
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+      - neo4j-import:/var/lib/neo4j/import
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  neo4j-data:
+    name: imparlabs-neo4j-data
+  neo4j-logs:
+    name: imparlabs-neo4j-logs
+  neo4j-import:
+    name: imparlabs-neo4j-import
