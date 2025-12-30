@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
-import NeoVis, { NeoVisConfig } from 'neovis.js';
+import NeoVis from 'neovis.js';
+import type { NeovisConfig } from 'neovis.js';
 
 // Node colors by label
 const NODE_COLORS: Record<string, string> = {
@@ -80,7 +81,7 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
   const initNeoVis = useCallback(() => {
     if (!containerRef.current) return;
 
-    const config: NeoVisConfig = {
+    const config: NeovisConfig = {
       containerId: containerRef.current.id,
       neo4j: {
         serverUrl: import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687',
@@ -122,6 +123,7 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
             align: 'middle',
           },
           smooth: {
+            enabled: true,
             type: 'curvedCW',
             roundness: 0.2,
           },
@@ -153,7 +155,8 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
           keyboard: true,
         },
       },
-      labels: createLabelConfig(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      labels: createLabelConfig() as any,
       relationships: {
         // Default relationship styling
         [NeoVis.NEOVIS_DEFAULT_CONFIG]: {
@@ -169,8 +172,9 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
     // Track if we've set up physics disable for the current render
     let physicsDisabled = false;
 
-    // Event handlers
-    neovisRef.current.registerOnEvent('completed', () => {
+    // Event handlers - use type assertion for Neovis event names
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (neovisRef.current as any).registerOnEvent('completed', () => {
       console.log('Graph rendering completed');
 
       // Only set up physics disable once per query
@@ -205,7 +209,8 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
       checkNetwork();
     });
 
-    neovisRef.current.registerOnEvent('clickNode', (event: { node: { id: string; raw: { labels: string[]; properties: Record<string, unknown> } } }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (neovisRef.current as any).registerOnEvent('clickNode', (event: { node: { id: string; raw: { labels: string[]; properties: Record<string, unknown> } } }) => {
       if (onNodeClick && event.node) {
         onNodeClick({
           id: event.node.id,
@@ -218,7 +223,8 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
     // Note: clickRelationship event not supported in all Neovis versions
     // Edge click handling can be done via vis.js network events if needed
     try {
-      neovisRef.current.registerOnEvent('clickEdge', (event: { edge: { id: string; raw: { type: string; properties: Record<string, unknown> } } }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (neovisRef.current as any).registerOnEvent('clickEdge', (event: { edge: { id: string; raw: { type: string; properties: Record<string, unknown> } } }) => {
         if (onRelationshipClick && event.edge) {
           onRelationshipClick({
             id: event.edge.id,
@@ -262,8 +268,10 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
   }
 
   // Create label configuration for all node types
-  function createLabelConfig(): Record<string, unknown> {
-    const config: Record<string, unknown> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function createLabelConfig(): Record<string | symbol, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config: Record<string | symbol, any> = {};
 
     for (const [label, color] of Object.entries(NODE_COLORS)) {
       config[label] = {

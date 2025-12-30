@@ -1,4 +1,4 @@
-import neo4j, { Driver, Session, Record } from 'neo4j-driver';
+import neo4j, { Driver, Session, Record as Neo4jRecord } from 'neo4j-driver';
 
 // Neo4j connection configuration
 const NEO4J_URI = import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687';
@@ -48,7 +48,7 @@ export async function executeQuery(cypher: string): Promise<QueryResult> {
 export interface QueryResult {
   nodes: GraphNode[];
   relationships: GraphRelationship[];
-  raw: Record[];
+  raw: Neo4jRecord[];
 }
 
 export interface GraphNode {
@@ -68,7 +68,7 @@ export interface GraphRelationship {
 /**
  * Format Neo4j records into nodes and relationships for visualization
  */
-function formatResult(records: Record[]): QueryResult {
+function formatResult(records: Neo4jRecord[]): QueryResult {
   const nodesMap = new Map<string, GraphNode>();
   const relationshipsMap = new Map<string, GraphRelationship>();
 
