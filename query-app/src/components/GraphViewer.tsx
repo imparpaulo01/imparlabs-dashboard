@@ -81,12 +81,27 @@ export function GraphViewer({ cypher, onNodeClick, onRelationshipClick }: GraphV
   const initNeoVis = useCallback(() => {
     if (!containerRef.current) return;
 
+    // Get server URL and check if it's AuraDB (contains .databases.neo4j.io)
+    let serverUrl = import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687';
+    const isAuraDB = serverUrl.includes('.databases.neo4j.io');
+
+    // For AuraDB: Convert neo4j+s:// to neo4j:// and use config-based encryption
+    // This avoids the "Encryption/trust can only be configured either through URL or config" error
+    if (isAuraDB && serverUrl.includes('+s://')) {
+      serverUrl = serverUrl.replace('neo4j+s://', 'neo4j://').replace('bolt+s://', 'bolt://');
+    }
+
     const config: NeovisConfig = {
       containerId: containerRef.current.id,
       neo4j: {
-        serverUrl: import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687',
+        serverUrl,
         serverUser: import.meta.env.VITE_NEO4J_USER || 'neo4j',
         serverPassword: import.meta.env.VITE_NEO4J_PASSWORD || 'knowledge-graph',
+        // For AuraDB: use config-based encryption instead of URL-based
+        // For local: disable encryption
+        driverConfig: isAuraDB
+          ? { encrypted: 'ENCRYPTION_ON', trust: 'TRUST_SYSTEM_CA_SIGNED_CERTIFICATES' }
+          : { encrypted: false },
       },
       visConfig: {
         nodes: {

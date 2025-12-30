@@ -1,9 +1,18 @@
 import neo4j, { Driver, Session, Record as Neo4jRecord } from 'neo4j-driver';
 
 // Neo4j connection configuration
-const NEO4J_URI = import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687';
+let NEO4J_URI = import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687';
 const NEO4J_USER = import.meta.env.VITE_NEO4J_USER || 'neo4j';
 const NEO4J_PASSWORD = import.meta.env.VITE_NEO4J_PASSWORD || 'knowledge-graph';
+
+// Check if connecting to AuraDB (cloud-hosted Neo4j)
+const isAuraDB = NEO4J_URI.includes('.databases.neo4j.io');
+
+// For AuraDB: Convert neo4j+s:// to neo4j:// to use config-based encryption
+// This avoids the "Encryption/trust can only be configured either through URL or config" error
+if (isAuraDB && NEO4J_URI.includes('+s://')) {
+  NEO4J_URI = NEO4J_URI.replace('neo4j+s://', 'neo4j://').replace('bolt+s://', 'bolt://');
+}
 
 let driver: Driver | null = null;
 
@@ -12,7 +21,15 @@ let driver: Driver | null = null;
  */
 export function getDriver(): Driver {
   if (!driver) {
-    driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
+    // For AuraDB: use config-based encryption instead of URL-based
+    // For local: disable encryption
+    driver = neo4j.driver(
+      NEO4J_URI,
+      neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
+      isAuraDB
+        ? { encrypted: 'ENCRYPTION_ON', trust: 'TRUST_SYSTEM_CA_SIGNED_CERTIFICATES' }
+        : { encrypted: false }
+    );
   }
   return driver;
 }
