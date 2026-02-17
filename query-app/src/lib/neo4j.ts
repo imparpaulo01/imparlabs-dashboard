@@ -1,9 +1,9 @@
 import neo4j, { Driver, Session, Record as Neo4jRecord } from 'neo4j-driver';
 
-// Neo4j connection configuration
+// Neo4j connection configuration - set via environment variables
 let NEO4J_URI = import.meta.env.VITE_NEO4J_URI || 'bolt://localhost:7687';
 const NEO4J_USER = import.meta.env.VITE_NEO4J_USER || 'neo4j';
-const NEO4J_PASSWORD = import.meta.env.VITE_NEO4J_PASSWORD || 'knowledge-graph';
+const NEO4J_PASSWORD = import.meta.env.VITE_NEO4J_PASSWORD || '';
 
 // Check if connecting to AuraDB (cloud-hosted Neo4j)
 const isAuraDB = NEO4J_URI.includes('.databases.neo4j.io');
@@ -21,6 +21,9 @@ let driver: Driver | null = null;
  */
 export function getDriver(): Driver {
   if (!driver) {
+    if (!NEO4J_PASSWORD) {
+      throw new Error('VITE_NEO4J_PASSWORD environment variable is required');
+    }
     // For AuraDB: use config-based encryption instead of URL-based
     // For local: disable encryption
     driver = neo4j.driver(

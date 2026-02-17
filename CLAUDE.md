@@ -17,19 +17,14 @@
 ### Quick Start
 ```bash
 cd docker/neo4j
+cp .env.example .env   # Edit .env with your credentials
 docker compose up -d
 ```
 
 ### Access Points
 - **Browser UI**: http://localhost:7474
 - **Bolt Protocol**: bolt://localhost:7687
-- **Credentials**: `neo4j` / `knowledge-graph`
-
-### Current Graph Status (as of 2025-12-30)
-- **Knowledge Graph**: 184 nodes, 405 relationships (HelloJune + Festival Research)
-- **Node Types (19)**: Project, Sponsor, Strategy, Document, Insight, ActivationZone, Coalition, Venue, Research, Person, Organization, Deliverable, Competitor, Festival, Statistic, Trend, BrandActivation, ActivationConcept, AudienceInterest
-- **Relationship Types (21)**: PROPOSED_FOR, ABOUT, SPONSORS_ZONE, FOR, FOUNDED, COMPETES_WITH, PART_OF, ANALYZES, ACTIVATED_AT, REFLECTS, INFORMS_STRATEGY_OF, FOR_FESTIVAL, INTEREST_OF_AUDIENCE_AT, and more
-- **Multi-Label Nodes**: D! Club and Village du Soir are both `:Venue:Competitor`
+- **Credentials**: Set via `NEO4J_AUTH` environment variable (see `.env.example`)
 
 ### Key Cypher Queries
 ```cypher
@@ -233,77 +228,6 @@ IMPAR/
 │   └── 3 - OBSOLETE/             # Archived projects
 ```
 
-### Future Integrations
-- **n8n Workflows**: Automated scanning triggers
-- **Coolify API**: Deployment status monitoring
-- **Umami Analytics**: Usage tracking integration
-- **GitHub Webhooks**: Real-time evolution tracking
-
-## Deployment Strategy
-
-### Development
-- Local SQLite database
-- Hot reload development server
-- Mock data for testing
-
-### Production
-- Coolify deployment
-- Persistent SQLite storage
-- Automated backup scripts
-- Monitoring and alerting
-
-## Maintenance & Evolution
-
-### Database Migrations
-```typescript
-const MIGRATIONS = [
-  // Version 1: Initial schema
-  `CREATE TABLE projects (...);`,
-
-  // Version 2: Add evolution tracking
-  `CREATE TABLE evolution_events (...);`,
-
-  // Future migrations...
-];
-```
-
-### Version Compatibility
-- Backward compatible database schema
-- Graceful handling of missing fields
-- Migration scripts for schema updates
-
-## Troubleshooting
-
-### Common Issues
-
-#### Database Connection Errors
-```bash
-# Check file permissions
-ls -la data/projects.db
-
-# Reinitialize database
-rm data/projects.db
-npm run scan  # Recreates database
-```
-
-#### Scan Failures
-```bash
-# Run with verbose output
-npm run scan -- --verbose
-
-# Check specific project
-imparlabs-dashboard scan --path /path/to/project
-```
-
-#### Performance Issues
-```bash
-# Check database size
-npm run stats
-
-# Create backup before cleanup
-npm run backup
-```
-
 ## File Structure
 
 ```
@@ -311,6 +235,7 @@ imparlabs-dashboard/
 ├── docker/
 │   └── neo4j/
 │       ├── docker-compose.yml     # Neo4j local development
+│       ├── .env.example           # Environment variable template
 │       ├── sample-data.cypher     # Initial graph data (HelloJune)
 │       └── example-queries.cypher # Reference queries
 ├── query-app/                     # Natural Language Query App (Vite + React)
@@ -340,13 +265,10 @@ imparlabs-dashboard/
 
 ## Natural Language Query App (query-app/)
 
-### ✅ IMPLEMENTED (2025-12-29)
-
-**Goal**: Query Neo4j with natural language, show graph view of results for visual insight discovery.
-
 ### Quick Start
 ```bash
 cd query-app
+cp .env.example .env.local   # Set your credentials
 npm install
 npm run dev  # Runs on localhost:5173 (or 5174 if 5173 in use)
 ```
@@ -362,7 +284,7 @@ npm run dev  # Runs on localhost:5173 (or 5174 if 5173 in use)
 VITE_GROQ_API_KEY=your-groq-api-key
 VITE_NEO4J_URI=bolt://localhost:7687
 VITE_NEO4J_USER=neo4j
-VITE_NEO4J_PASSWORD=knowledge-graph
+VITE_NEO4J_PASSWORD=your-neo4j-password
 ```
 
 ### Key Components
@@ -371,20 +293,8 @@ VITE_NEO4J_PASSWORD=knowledge-graph
 - **Purpose**: Neovis.js wrapper for interactive graph visualization
 - **Node Colors**: 13 distinct colors by label type (Project=green, Sponsor=blue, etc.)
 - **Node Sizes**: Balanced range 28-40 for visibility
-- **Physics Engine**: `repulsion` solver with optimized spacing:
-  ```typescript
-  physics: {
-    solver: 'repulsion',
-    repulsion: {
-      nodeDistance: 350,
-      centralGravity: 0.02,
-      springLength: 400,
-      springConstant: 0.01,
-      damping: 0.15,
-    }
-  }
-  ```
-- **Dynamic Labels**: Checks name → title → content → topic → pitch
+- **Physics Engine**: `repulsion` solver with optimized spacing
+- **Dynamic Labels**: Checks name > title > content > topic > pitch
 
 #### NodeDetails.tsx
 - **Purpose**: Shows node/relationship properties on click
@@ -395,73 +305,38 @@ VITE_NEO4J_PASSWORD=knowledge-graph
 - **Suggestions**: Pre-built queries for common patterns
 
 #### groq.ts
-- **Purpose**: Natural language → Cypher translation
+- **Purpose**: Natural language > Cypher translation via Groq
 - **Model**: `llama-3.3-70b-versatile` (temperature: 0.1)
 - **System Prompt**: Contains full schema (19 node types, 21 relationship types) and example queries
 - **Key Rules**:
-  - Rule 8: Use `CONTAINS` for fuzzy name matching (handles partial/truncated names)
-  - Rule 9: Return ALL relationships for single entity queries (not just one type)
-  - Example: `WHERE toLower(s.name) CONTAINS toLower('search term')`
+  - Use `CONTAINS` for fuzzy name matching (handles partial/truncated names)
+  - Return ALL relationships for single entity queries (not just one type)
 
-### Neo4j UNION Query Gotcha (2025-12-30)
-**Important**: Neo4j UNION queries require identical column names across all subqueries.
-
-**Wrong** (causes error):
-```cypher
-MATCH (d:Document)-[r:ANALYZES]->(f:Festival) RETURN d, r, f
-UNION ALL
-MATCH (f:Festival)-[r2]-(other) RETURN f, r2, other
--- Error: column names mismatch (d,r,f vs f,r2,other)
-```
-
-**Correct** (use AS aliases):
-```cypher
-MATCH (d:Document)-[r:ANALYZES]->(f:Festival) RETURN d, r, f
-UNION ALL
-MATCH (f:Festival)-[r2]-(other) WHERE NOT other:Document RETURN f as d, r2 as r, other as f
--- Now column names match: d, r, f
-```
+### Neo4j UNION Query Gotcha
+**Important**: Neo4j UNION queries require identical column names across all subqueries. Use `AS` aliases to match column names.
 
 ### Key Design Decisions
 
-1. **Physics Solver Choice** (2025-12-29):
-   - Tried `barnesHut` → nodes overlapped
-   - Tried `forceAtlas2Based` → still overlapping
-   - **Solution**: `repulsion` solver with nodeDistance: 350, springLength: 400
-   - Result: Clean radial layout, no overlapping nodes
+1. **Physics Solver Choice**:
+   - `repulsion` solver with nodeDistance: 350, springLength: 400
+   - Produces clean radial layout without overlapping nodes
 
 2. **Node Label Resolution**:
-   - Different node types use different properties for display name
    - Order of preference: name > title > content > topic > pitch
-   - Fallback to first character "?" for truly unknown nodes
+   - Fallback to "?" for unknown nodes
 
 3. **Font Styling**:
    - White text with black stroke (2px) for visibility on colored nodes
-   - Size: 11px, not bold (cleaner look)
-   - Truncation at 30 characters with "..."
 
 ## Data Quality & Maintenance
 
 ### Date Format Standard
 All date fields must be stored as ISO strings (`"2025-12-29"`), NOT as Neo4j DateTime objects.
 
-**Why?** Neo4j DateTime objects render as JSON in the UI: `{"year": 2025, "month": 12, "day": 29}` instead of clean dates.
-
-**Fix Command** (if DateTime objects appear):
-```cypher
-MATCH (n:NodeType) WHERE n.date_field IS NOT NULL
-SET n.date_field = toString(date(n.date_field))
-```
-
 ### Multi-Label Nodes
-Some entities have multiple labels (e.g., `Venue:Competitor`). This is intentional for:
-- **D! Club** - Both a Venue and a Competitor
-- **Village du Soir** - Both a Venue and a Competitor
-
-**Note:** HelloJune exists as both `:Project` and `:Organization` - these are intentionally separate nodes linked via `FOR_CLIENT` relationship.
+Some entities have multiple labels (e.g., `Venue:Competitor`). This is intentional.
 
 ### Duplicate Detection
-Run periodically to check for duplicates:
 ```cypher
 MATCH (n)
 WITH labels(n) AS labels, n.name AS name, collect(n) AS nodes, count(*) AS cnt
@@ -469,30 +344,21 @@ WHERE cnt > 1
 RETURN labels, name, cnt, [n IN nodes | id(n)] AS ids
 ```
 
-### Property Standardization
-**Person nodes** should have: `name`, `role`, `organization`, `origin`, `focus`
-**Project nodes** should NOT have: `path`, `id` (internal fields)
-
 ### Neo4j Docker Access
 ```bash
-# Execute Cypher queries
-docker exec -i imparlabs-neo4j-local cypher-shell -u neo4j -p knowledge-graph
-
-# Example: View all node counts by label
-docker exec -i imparlabs-neo4j-local cypher-shell -u neo4j -p knowledge-graph \
-  "MATCH (n) RETURN labels(n) AS label, count(*) AS count ORDER BY count DESC"
+# Execute Cypher queries (use your configured credentials)
+docker exec -i imparlabs-neo4j-local cypher-shell -u neo4j -p "$NEO4J_PASSWORD"
 ```
+
+## Critical: AuraDB 64-bit ID Bug
+
+**DO NOT use AuraDB** for production. Edge rendering fails because AuraDB relationship IDs overflow JavaScript's `Number.MAX_SAFE_INTEGER`.
 
 ## Future Enhancements
 
-### Current Priority: Production Deployment
-- Deploy query-app to Coolify
-- Configure environment variables
-- Set up domain (e.g., kg.imparlabs.com)
-
 ### Phase 3 Features
-- n8n integration for automated graph enrichment
-- PAI session/learning integration
+- Automated graph enrichment via workflows
+- Session/learning integration
 - Real-time knowledge capture
 
 ### Phase 4 Features

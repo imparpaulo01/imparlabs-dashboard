@@ -65,17 +65,20 @@ src/
 **neo4j.ts** (lib/)
 - Connection management and health checks
 - Graph statistics (node count, relationship count, labels)
+- Requires `VITE_NEO4J_PASSWORD` env var (no fallback credentials)
 
 ## Environment Variables
+
+Create a `.env.local` file (gitignored) with:
 
 ```env
 VITE_NEO4J_URI=bolt://localhost:7687
 VITE_NEO4J_USER=neo4j
-VITE_NEO4J_PASSWORD=knowledge-graph
-VITE_GROQ_API_KEY=gsk_your_key_here
+VITE_NEO4J_PASSWORD=your-neo4j-password
+VITE_GROQ_API_KEY=your-groq-api-key
 ```
 
-**Note:** VITE_ variables are baked in at build time. Redeploy after changing.
+**Note:** `VITE_` variables are baked in at build time. Redeploy after changing.
 
 ## Node Types (19 total)
 
@@ -104,62 +107,32 @@ Defined in `GraphViewer.tsx` lines 6-53:
 // vis.js deduplicates by ID → only 1 edge survives
 ```
 
-**Solution:** Fresh Neo4j on Coolify with sequential IDs (0, 1, 2...).
+**Solution:** Self-hosted Neo4j with sequential IDs (0, 1, 2...).
 
 ## Deployment
 
-### Coolify (Recommended)
+### Docker (Recommended)
 
-1. Deploy Neo4j (Docker Compose):
-```yaml
-version: '3'
-services:
-  neo4j:
-    image: neo4j:5-community
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    environment:
-      - NEO4J_AUTH=neo4j/your-password
-    volumes:
-      - neo4j-data:/data
-volumes:
-  neo4j-data:
-```
+1. Deploy Neo4j using `docker/neo4j/docker-compose.yml`
+2. Deploy query app as a static site (build output in `dist/`)
+3. Set environment variables for Neo4j connection and Groq API key
 
-2. Deploy Query App (Nixpacks):
-```toml
-[phases.setup]
-nixPkgs = ['nodejs_20']
+### Vercel
 
-[phases.install]
-cmds = ['npm ci']
-
-[phases.build]
-cmds = ['npm run build']
-
-[start]
-cmd = 'npx serve dist -l 3000'
-```
-
-3. Set environment variables in Coolify dashboard.
-
-### Vercel (NOT Recommended)
-
-Works for frontend, but requires external Neo4j. AuraDB has ID overflow bug.
+Works for frontend, but requires external Neo4j. AuraDB has the ID overflow bug described above.
 
 ## Data Import
 
 Export from local Neo4j:
 ```bash
-docker exec neo4j cypher-shell -u neo4j -p knowledge-graph \
+docker exec neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" \
   "CALL apoc.export.cypher.all('/var/lib/neo4j/import/export.cypher', {format:'plain'})"
 docker cp neo4j:/var/lib/neo4j/import/export.cypher ./export.cypher
 ```
 
-Import to Coolify Neo4j:
+Import to target Neo4j:
 ```bash
-cypher-shell -a bolt://your-neo4j:7687 -u neo4j -p password < export.cypher
+cypher-shell -a bolt://your-neo4j:7687 -u neo4j -p "$NEO4J_PASSWORD" < export.cypher
 ```
 
 ## Debug Mode
@@ -169,14 +142,6 @@ cypher-shell -a bolt://your-neo4j:7687 -u neo4j -p password < export.cypher
 ```typescript
 // Find the 'completed' event handler and toggle console.log statements
 ```
-
-Current state: Enabled for troubleshooting.
-
-## Current Data
-
-- **184 nodes**, **405 relationships**
-- HelloJune knowledge graph + Festival research data
-- Labels: Project, Sponsor, Festival, Statistic, Trend, BrandActivation, etc.
 
 ---
 
